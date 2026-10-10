@@ -42,8 +42,8 @@ function App() {
         <a
           ref={logoRef}
           href="#"
-         className="brand-logo group relative flex items-center gap-2.5 text-3xl font-semibold text-[#35583b]"
-style={{ fontFamily: "'Caveat', cursive" }}
+          className="brand-logo group relative flex items-center gap-2.5 text-3xl font-semibold text-[#35583b]"
+          style={{ fontFamily: "'Caveat', cursive" }}
           aria-label="AgriSync home"
         >
           <Sprout
@@ -72,46 +72,70 @@ style={{ fontFamily: "'Caveat', cursive" }}
         </a>
       </nav>
 
-      <section className="mx-auto flex max-w-5xl flex-col items-center pt-16 text-center md:pt-24">
-        <span className="rounded-full bg-[#dcd4c2] px-4 py-2 text-xs tracking-wide">
-          INTELLIGENT AGRICULTURE
-        </span>
+<section className="mx-auto grid min-h-[75vh] max-w-7xl grid-cols-1 items-center gap-10 py-12 md:grid-cols-2 md:gap-8">
+  <div className="flex flex-col items-start text-left">
+    <span className="rounded-full bg-[#dcd4c2] px-4 py-2 text-xs tracking-wide text-[#35583b]">
+      INTELLIGENT AGRICULTURE
+    </span>
 
-        <h1 className="mt-7 max-w-4xl font-serif text-4xl leading-[1.08] tracking-[-0.045em] sm:text-5xl md:text-7xl">
-          Precision Farming and Soil
-          <br className="hidden md:block" /> Health Monitoring
-        </h1>
+    <h1 className="mt-7 max-w-xl text-left font-serif text-4xl leading-[1.08] tracking-[-0.045em] sm:text-5xl md:text-6xl lg:text-7xl">
+      Precision Farming
+      <br />
+      and Soil
+      <br />
+      <span className="italic text-[#52764a]">Health Monitoring</span>
+    </h1>
 
-        <p className="mt-6 max-w-xl text-sm leading-7 text-[#6b634f] md:text-base">
-          Understand your soil. Discover its potential. Make smarter crop
-          decisions with AI-powered nutrient assessment and intelligent
-          agricultural insights.
-        </p>
+    <p className="mt-6 max-w-lg text-left text-sm leading-7 text-[#6b634f] md:text-base">
+      Understand your soil. Discover its potential. Make smarter crop
+      decisions with AI-powered nutrient assessment and intelligent
+      agricultural insights.
+    </p>
 
-        <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <a
-            href="#analysis"
-            className="rounded-xl bg-[#302a1d] px-6 py-3.5 text-sm text-[#f4eddf] transition hover:-translate-y-1"
-          >
-            Analyze Your Soil ↗
-          </a>
+    <div className="mt-8 flex flex-wrap justify-start gap-3">
+      <a
+        href="#analysis"
+        className="rounded-xl bg-[#35583b] px-6 py-3.5 text-sm text-white transition hover:-translate-y-1 hover:bg-[#29452e]"
+      >
+        Analyze Your Soil ↗
+      </a>
 
-          <a
-            href="#technology"
-            className="rounded-xl border border-[#352e20]/20 px-6 py-3.5 text-sm transition hover:bg-[#ded6c5]"
-          >
-            Explore Technology
-          </a>
-        </div>
+      <a
+        href="#technology"
+        className="rounded-xl border border-[#352e20]/20 px-6 py-3.5 text-sm transition hover:bg-[#ded6c5]"
+      >
+        Explore Technology
+      </a>
+    </div>
 
-        <div className="mt-12 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#dcd4c2] shadow-[inset_3px_3px_7px_#c9c1b0,inset_-3px_-3px_7px_#f8f1e2]">
-          <Sprout size={28} strokeWidth={1.4} />
-        </div>
+    <div className="mt-10 flex items-center gap-3 text-sm text-[#6b634f]">
+      <Sprout size={22} className="text-[#52764a]" />
+      <span>Grow with better insights</span>
+    </div>
+  </div>
 
-        <p className="mt-4 text-xs tracking-[0.2em] text-[#77705e]">
-          GROW WITH BETTER INSIGHTS
-        </p>
-      </section>
+  <div className="relative flex min-h-[400px] items-center justify-center md:min-h-[560px]">
+    <div className="absolute h-[80%] w-[80%] rounded-full bg-[#dcd4c2]" />
+    <div className="absolute h-[65%] w-[65%] rounded-full border border-[#8ca77b]/40" />
+
+    <img
+      src="/images/farmer/farmer-01.png"
+      alt="Farmer in an agricultural setting"
+      className="relative z-10 max-h-[520px] w-full object-contain"
+    />
+
+    <div className="absolute left-0 top-[22%] z-20 rounded-2xl border border-white/70 bg-[#fffdf7]/90 p-4 shadow-lg backdrop-blur-md">
+      <p className="text-xs text-[#77705e]">Soil analysis</p>
+      <p className="mt-1 font-semibold text-[#35583b]">Know your soil</p>
+    </div>
+
+    <div className="absolute bottom-[20%] right-0 z-20 rounded-2xl border border-white/70 bg-[#fffdf7]/90 p-4 shadow-lg backdrop-blur-md">
+      <p className="text-xs text-[#77705e]">Smart advisory</p>
+      <p className="mt-1 font-semibold text-[#35583b]">Grow smarter</p>
+    </div>
+  </div>
+</section>
+
     </main>
   )
 }
