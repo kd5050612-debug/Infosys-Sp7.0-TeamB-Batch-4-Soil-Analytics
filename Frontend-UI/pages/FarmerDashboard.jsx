@@ -4,6 +4,7 @@ import {
   Sprout,
   UserRound,
   Camera,
+  SwitchCamera,
   Upload,
   Image as ImageIcon,
   LayoutDashboard,
@@ -34,35 +35,68 @@ export default function FarmerDashboard({ user, onLogout }) {
     ...initialProfile,
     name: user?.name || '',
   })
+  const [loading, setLoading] = useState(true)
   const [profileImage, setProfileImage] = useState(null)
   const [editing, setEditing] = useState(true)
   const [photo, setPhoto] = useState(null)
   const [history, setHistory] = useState([])
   const [message, setMessage] = useState('')
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const [cameraLoading, setCameraLoading] = useState(false)
+  const [cameraFacingMode, setCameraFacingMode] = useState('environment')
+  const [cameraStream, setCameraStream] = useState(null)
   const fileRef = useRef(null)
-  const cameraRef = useRef(null)
+  const videoRef = useRef(null)
+  const cameraStreamRef = useRef(null)
+  const cameraRequestRef = useRef(0)
   const profileImageRef = useRef(null)
 
   useEffect(() => {
-    const savedProfile = localStorage.getItem(PROFILE_STORAGE_KEY)
-    if (savedProfile) {
-      try {
-        const parsedProfile = JSON.parse(savedProfile)
-        setProfile({ ...initialProfile, ...parsedProfile })
-        setEditing(false)
-      } catch (error) {
-        console.error('Failed to read saved profile:', error)
-      }
+    if (!cameraStream) return
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = cameraStream
     }
 
-    const savedPhoto = localStorage.getItem(PHOTO_STORAGE_KEY)
-    if (savedPhoto) {
-      try {
-        setProfileImage(JSON.parse(savedPhoto))
-      } catch (error) {
-        console.error('Failed to read saved profile photo:', error)
+    return () => cameraStream.getTracks().forEach((track) => track.stop())
+  }, [cameraStream])
+
+  useEffect(
+    () => () => {
+      cameraRequestRef.current += 1
+      cameraStreamRef.current?.getTracks().forEach((track) => track.stop())
+    },
+    [],
+  )
+
+  useEffect(() => {
+    let loadingTimer
+
+    try {
+      const savedProfile = localStorage.getItem(PROFILE_STORAGE_KEY)
+      if (savedProfile) {
+        try {
+          const parsedProfile = JSON.parse(savedProfile)
+          setProfile({ ...initialProfile, ...parsedProfile })
+          setEditing(false)
+        } catch (error) {
+          console.error('Failed to read saved profile:', error)
+        }
       }
+
+      const savedPhoto = localStorage.getItem(PHOTO_STORAGE_KEY)
+      if (savedPhoto) {
+        try {
+          setProfileImage(JSON.parse(savedPhoto))
+        } catch (error) {
+          console.error('Failed to read saved profile photo:', error)
+        }
+      }
+    } finally {
+      loadingTimer = window.setTimeout(() => setLoading(false), 600)
     }
+
+    return () => window.clearTimeout(loadingTimer)
   }, [])
 
   function updateProfile(event) {
@@ -128,6 +162,97 @@ export default function FarmerDashboard({ user, onLogout }) {
     event.target.value = ''
   }
 
+  async function startCamera(facingMode) {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setMessage('Camera access requires a supported browser and a secure connection.')
+      return
+    }
+
+    const requestId = ++cameraRequestRef.current
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop())
+    cameraStreamRef.current = null
+    setCameraStream(null)
+    setCameraOpen(true)
+    setCameraLoading(true)
+    setMessage('')
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: { ideal: facingMode },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      })
+
+      if (requestId !== cameraRequestRef.current) {
+        stream.getTracks().forEach((track) => track.stop())
+        return
+      }
+
+      cameraStreamRef.current = stream
+      setCameraStream(stream)
+    } catch (error) {
+      if (requestId === cameraRequestRef.current) {
+        setCameraOpen(false)
+        setMessage(
+          error.name === 'NotAllowedError'
+            ? 'Camera permission was denied. Allow camera access in your browser settings and try again.'
+            : 'Unable to access the camera. Check that a camera is available and try again.',
+        )
+      }
+    } finally {
+      if (requestId === cameraRequestRef.current) {
+        setCameraLoading(false)
+      }
+    }
+  }
+
+  function stopCamera() {
+    cameraRequestRef.current += 1
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop())
+    cameraStreamRef.current = null
+    setCameraStream(null)
+    setCameraOpen(false)
+    setCameraLoading(false)
+  }
+
+  function switchCamera() {
+    const nextFacingMode =
+      cameraFacingMode === 'environment' ? 'user' : 'environment'
+    setCameraFacingMode(nextFacingMode)
+    startCamera(nextFacingMode)
+  }
+
+  function capturePhoto() {
+    const video = videoRef.current
+    if (!video?.videoWidth || !video.videoHeight) {
+      setMessage('The camera is not ready yet. Please try again.')
+      return
+    }
+
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const context = canvas.getContext('2d')
+    if (!context) {
+      setMessage('Unable to capture the camera image. Please try again.')
+      return
+    }
+
+    try {
+      context.drawImage(video, 0, 0, canvas.width, canvas.height)
+      const name = `soil-capture-${Date.now()}.jpg`
+      setPhoto({ name, preview: canvas.toDataURL('image/jpeg', 0.9) })
+      setMessage('Image ready. Connect the ML API to analyze it.')
+      stopCamera()
+    } catch (error) {
+      console.error('Failed to capture soil image:', error)
+      setMessage('Unable to capture the camera image. Please try again.')
+    }
+  }
+
   function removeProfileImage() {
     setProfileImage(null)
     localStorage.removeItem(PHOTO_STORAGE_KEY)
@@ -159,6 +284,95 @@ export default function FarmerDashboard({ user, onLogout }) {
 
   const fieldClass =
     'mt-2 w-full rounded-xl border border-[#d9d2c2] bg-white px-4 py-3 text-sm outline-none transition duration-300 focus:border-[#52764a] focus:shadow-[0_0_0_4px_rgba(82,118,74,0.08)]'
+
+  if (loading) {
+    return (
+      <main aria-busy="true" aria-label="Loading farmer dashboard" className="min-h-screen bg-[#f3f0e7] text-[#352e20]">
+        <header className="sticky top-0 z-30 border-b border-[#352e20]/10 bg-[#fffdf7]/95 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+            <div className="flex items-center gap-2 text-2xl font-semibold text-[#35583b]" style={{ fontFamily: "'Caveat', cursive" }}>
+              <Sprout size={25} />
+              AgriSync
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="hidden animate-pulse items-center gap-3 sm:flex" aria-hidden="true">
+                <div className="h-11 w-11 rounded-full bg-[#e7ebdf]" />
+                <div className="space-y-2">
+                  <div className="h-3 w-24 rounded bg-[#e7ebdf]" />
+                  <div className="h-2.5 w-28 rounded bg-[#e7ebdf]" />
+                </div>
+              </div>
+              <div className="h-10 w-24 animate-pulse rounded-full bg-[#e7ebdf]" aria-hidden="true" />
+            </div>
+          </div>
+        </header>
+
+        <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 md:grid-cols-[220px_1fr] md:py-9">
+          <aside className="h-fit space-y-4 rounded-3xl border border-white bg-[#fffdf7] p-4 shadow-sm" aria-hidden="true">
+            <div className="h-3 w-20 animate-pulse rounded bg-[#e7ebdf]" />
+            {[0, 1, 2, 3].map((item) => (
+              <div key={item} className="h-11 animate-pulse rounded-xl bg-[#f0eee5]" />
+            ))}
+          </aside>
+
+          <div className="min-w-0 space-y-7" aria-hidden="true">
+            <section className="space-y-5 rounded-[30px] bg-[#35583b] p-6 shadow-[0_30px_70px_rgba(53,88,59,0.22)] sm:p-9">
+              <div className="h-8 w-48 animate-pulse rounded-full bg-white/15" />
+              <div className="h-10 w-3/4 animate-pulse rounded bg-white/15 sm:h-14" />
+              <div className="h-4 w-full max-w-lg animate-pulse rounded bg-white/15" />
+              <div className="h-4 w-2/3 max-w-md animate-pulse rounded bg-white/15" />
+              <div className="h-11 w-32 animate-pulse rounded-xl bg-white/15" />
+            </section>
+
+            <section className="space-y-6 rounded-3xl border border-white bg-[#fffdf7] p-5 shadow-sm sm:p-7">
+              <div className="space-y-3">
+                <div className="h-3 w-36 animate-pulse rounded bg-[#e7ebdf]" />
+                <div className="h-8 w-56 animate-pulse rounded bg-[#e7ebdf]" />
+                <div className="h-4 w-64 animate-pulse rounded bg-[#f0eee5]" />
+              </div>
+              <div className="flex items-center gap-4 rounded-2xl bg-[#f5f5ed] p-4">
+                <div className="h-20 w-20 shrink-0 animate-pulse rounded-full bg-[#e7ebdf]" />
+                <div className="space-y-3">
+                  <div className="h-4 w-28 animate-pulse rounded bg-[#e7ebdf]" />
+                  <div className="h-3 w-40 animate-pulse rounded bg-[#e7ebdf]" />
+                </div>
+              </div>
+              <div className="grid gap-5 sm:grid-cols-2">
+                {[0, 1, 2, 3, 4, 5].map((item) => (
+                  <div key={item} className="space-y-2">
+                    <div className="h-4 w-24 animate-pulse rounded bg-[#e7ebdf]" />
+                    <div className="h-12 animate-pulse rounded-xl bg-[#f0eee5]" />
+                  </div>
+                ))}
+              </div>
+              <div className="h-11 w-36 animate-pulse rounded-xl bg-[#e7ebdf]" />
+            </section>
+
+            <section className="space-y-6 rounded-3xl border border-white bg-[#fffdf7] p-5 shadow-sm sm:p-7">
+              <div className="space-y-3">
+                <div className="h-3 w-40 animate-pulse rounded bg-[#e7ebdf]" />
+                <div className="h-8 w-56 animate-pulse rounded bg-[#e7ebdf]" />
+                <div className="h-4 w-full max-w-xl animate-pulse rounded bg-[#f0eee5]" />
+              </div>
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="min-h-64 animate-pulse rounded-2xl bg-[#f0eee5]" />
+                <div className="flex flex-col justify-center gap-3">
+                  <div className="h-14 animate-pulse rounded-xl bg-[#e7ebdf]" />
+                  <div className="h-14 animate-pulse rounded-xl bg-[#f0eee5]" />
+                </div>
+              </div>
+              <div className="h-20 animate-pulse rounded-2xl bg-[#f0eee5]" />
+            </section>
+
+            <section className="space-y-5 rounded-3xl border border-white bg-[#fffdf7] p-5 shadow-sm sm:p-7">
+              <div className="h-8 w-52 animate-pulse rounded bg-[#e7ebdf]" />
+              <div className="h-24 animate-pulse rounded-2xl bg-[#f0eee5]" />
+            </section>
+          </div>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <>
@@ -380,7 +594,23 @@ export default function FarmerDashboard({ user, onLogout }) {
 
             <div className="grid gap-6 lg:grid-cols-2">
               <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#b6c6a6] bg-[#f5f5ed] p-5 text-center">
-                {photo ? (
+                {cameraOpen ? (
+                  cameraStream ? (
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      aria-label={`${cameraFacingMode === 'environment' ? 'Back' : 'Front'} camera preview`}
+                      className="max-h-64 w-full rounded-xl object-contain"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center text-[#35583b]">
+                      <Camera size={30} />
+                      <p className="mt-3 text-sm">{cameraLoading ? 'Opening camera…' : 'Camera preview'}</p>
+                    </div>
+                  )
+                ) : photo ? (
                   <img src={photo.preview} alt="Selected soil sample" className="max-h-64 w-full rounded-xl object-contain" />
                 ) : (
                   <>
@@ -394,12 +624,25 @@ export default function FarmerDashboard({ user, onLogout }) {
               </div>
 
               <div className="flex flex-col justify-center gap-3">
-                <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={selectImage} className="hidden" />
                 <input ref={fileRef} type="file" accept="image/*" onChange={selectImage} className="hidden" />
 
-                <button type="button" onClick={() => cameraRef.current?.click()} className="flex items-center justify-center gap-3 rounded-xl bg-[#35583b] px-5 py-4 text-sm font-semibold text-white transition duration-300 hover:-translate-y-0.5 hover:bg-[#29452e]">
-                  <Camera size={20} /> Take a soil photo
-                </button>
+                {cameraOpen ? (
+                  <>
+                    <button type="button" onClick={capturePhoto} disabled={!cameraStream} className="flex items-center justify-center gap-3 rounded-xl bg-[#35583b] px-5 py-4 text-sm font-semibold text-white transition duration-300 hover:-translate-y-0.5 hover:bg-[#29452e] disabled:cursor-not-allowed disabled:opacity-60">
+                      <Camera size={20} /> Capture photo
+                    </button>
+                    <button type="button" onClick={switchCamera} disabled={cameraLoading} className="flex items-center justify-center gap-3 rounded-xl border border-[#35583b]/20 px-5 py-4 text-sm font-semibold text-[#35583b] transition duration-300 hover:-translate-y-0.5 hover:bg-[#e7ebdf] disabled:cursor-not-allowed disabled:opacity-60">
+                      <SwitchCamera size={20} /> Switch to {cameraFacingMode === 'environment' ? 'front' : 'back'} camera
+                    </button>
+                    <button type="button" onClick={stopCamera} className="rounded-xl px-5 py-3 text-sm text-[#8b493e] transition duration-300 hover:bg-[#f5e9e5]">
+                      Cancel camera
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" onClick={() => startCamera(cameraFacingMode)} className="flex items-center justify-center gap-3 rounded-xl bg-[#35583b] px-5 py-4 text-sm font-semibold text-white transition duration-300 hover:-translate-y-0.5 hover:bg-[#29452e]">
+                    <Camera size={20} /> Take a soil photo
+                  </button>
+                )}
                 <button type="button" onClick={() => fileRef.current?.click()} className="flex items-center justify-center gap-3 rounded-xl border border-[#35583b]/20 px-5 py-4 text-sm font-semibold text-[#35583b] transition duration-300 hover:-translate-y-0.5 hover:bg-[#e7ebdf]">
                   <Upload size={20} /> Upload from device
                 </button>
