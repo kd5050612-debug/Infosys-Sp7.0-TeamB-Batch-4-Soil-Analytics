@@ -9,6 +9,7 @@ import {
   Image as ImageIcon,
   LayoutDashboard,
   History,
+  Users,
   LogOut,
   Save,
   Pencil,
@@ -17,6 +18,7 @@ import {
   Leaf,
   ScanSearch,
 } from 'lucide-react'
+import CommunitySection from '../src/components/CommunitySection'
 
 const initialProfile = {
   name: '',
@@ -41,9 +43,11 @@ export default function FarmerDashboard({ user, onLogout }) {
   const [photo, setPhoto] = useState(null)
   const [history, setHistory] = useState([])
   const [message, setMessage] = useState('')
+  const [activeSection, setActiveSection] = useState('overview')
   const [cameraOpen, setCameraOpen] = useState(false)
   const [cameraLoading, setCameraLoading] = useState(false)
   const [cameraFacingMode, setCameraFacingMode] = useState('environment')
+  const [cameraTarget, setCameraTarget] = useState('soil')
   const [cameraStream, setCameraStream] = useState(null)
   const fileRef = useRef(null)
   const videoRef = useRef(null)
@@ -119,6 +123,13 @@ export default function FarmerDashboard({ user, onLogout }) {
 
     if (!file.type.startsWith('image/')) {
       setMessage('Please select an image file for your profile photo.')
+      event.target.value = ''
+      return
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setMessage('Please choose a profile photo smaller than 10 MB.')
+      event.target.value = ''
       return
     }
 
@@ -132,6 +143,7 @@ export default function FarmerDashboard({ user, onLogout }) {
       localStorage.setItem(PHOTO_STORAGE_KEY, JSON.stringify(profilePhoto))
       setMessage('Profile photo uploaded successfully.')
     }
+    reader.onerror = () => setMessage('Unable to read that image. Please try another photo.')
     reader.readAsDataURL(file)
     event.target.value = ''
   }
@@ -162,7 +174,7 @@ export default function FarmerDashboard({ user, onLogout }) {
     event.target.value = ''
   }
 
-  async function startCamera(facingMode) {
+  async function startCamera(facingMode, target = 'soil') {
     if (!navigator.mediaDevices?.getUserMedia) {
       setMessage('Camera access requires a supported browser and a secure connection.')
       return
@@ -174,6 +186,7 @@ export default function FarmerDashboard({ user, onLogout }) {
     setCameraStream(null)
     setCameraOpen(true)
     setCameraLoading(true)
+    setCameraTarget(target)
     setMessage('')
 
     try {
@@ -222,7 +235,7 @@ export default function FarmerDashboard({ user, onLogout }) {
     const nextFacingMode =
       cameraFacingMode === 'environment' ? 'user' : 'environment'
     setCameraFacingMode(nextFacingMode)
-    startCamera(nextFacingMode)
+    startCamera(nextFacingMode, cameraTarget)
   }
 
   function capturePhoto() {
@@ -243,9 +256,22 @@ export default function FarmerDashboard({ user, onLogout }) {
 
     try {
       context.drawImage(video, 0, 0, canvas.width, canvas.height)
-      const name = `soil-capture-${Date.now()}.jpg`
-      setPhoto({ name, preview: canvas.toDataURL('image/jpeg', 0.9) })
-      setMessage('Image ready. Connect the ML API to analyze it.')
+      const preview = canvas.toDataURL('image/jpeg', 0.9)
+
+      if (cameraTarget === 'profile') {
+        const profilePhoto = {
+          name: `profile-photo-${Date.now()}.jpg`,
+          preview,
+        }
+        setProfileImage(profilePhoto)
+        localStorage.setItem(PHOTO_STORAGE_KEY, JSON.stringify(profilePhoto))
+        setMessage('Profile photo captured successfully.')
+      } else {
+        const name = `soil-capture-${Date.now()}.jpg`
+        setPhoto({ name, preview })
+        setMessage('Image ready. Connect the ML API to analyze it.')
+      }
+
       stopCamera()
     } catch (error) {
       console.error('Failed to capture soil image:', error)
@@ -280,6 +306,12 @@ export default function FarmerDashboard({ user, onLogout }) {
 
   function deleteHistory(id) {
     setHistory((items) => items.filter((item) => item.id !== id))
+  }
+
+  function navigateTo(section) {
+    if (cameraOpen) stopCamera()
+    setActiveSection(section)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const fieldClass =
@@ -408,10 +440,10 @@ export default function FarmerDashboard({ user, onLogout }) {
       <main className="min-h-screen bg-[#f3f0e7] text-[#352e20]">
       <header className="sticky top-0 z-30 border-b border-[#352e20]/10 bg-[#fffdf7]/95 backdrop-blur-xl transition-all duration-300">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <a href="#dashboard" className="flex items-center gap-2 text-2xl font-semibold text-[#35583b]" style={{ fontFamily: "'Caveat', cursive" }}>
+          <button type="button" onClick={() => navigateTo('overview')} className="flex items-center gap-2 text-2xl font-semibold text-[#35583b]" style={{ fontFamily: "'Caveat', cursive" }}>
             <Sprout size={25} />
             AgriSync
-          </a>
+          </button>
 
           <div className="flex items-center gap-3">
             <div className="hidden items-center gap-3 sm:flex">
@@ -446,25 +478,34 @@ export default function FarmerDashboard({ user, onLogout }) {
           <p className="px-3 pb-3 text-xs font-semibold tracking-widest text-[#91866f]">
             WORKSPACE
           </p>
-          <a href="#dashboard" className="mb-1 flex items-center gap-3 rounded-xl bg-[#e7ebdf] px-3 py-3 text-sm font-semibold text-[#35583b]">
+          <button type="button" onClick={() => navigateTo('overview')} className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition ${activeSection === 'overview' ? 'bg-[#e7ebdf] font-semibold text-[#35583b]' : 'text-[#6b634f] hover:bg-[#f0eee5]'}`}>
             <LayoutDashboard size={18} />
             Overview
-          </a>
-          <a href="#profile" className="mb-1 flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-[#6b634f] transition hover:bg-[#f0eee5]">
+          </button>
+          <button type="button" onClick={() => navigateTo('profile')} className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition ${activeSection === 'profile' ? 'bg-[#e7ebdf] font-semibold text-[#35583b]' : 'text-[#6b634f] hover:bg-[#f0eee5]'}`}>
             <UserRound size={18} />
             Farmer profile
-          </a>
-          <a href="#soil-analysis" className="mb-1 flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-[#6b634f] transition hover:bg-[#f0eee5]">
+          </button>
+          <button type="button" onClick={() => navigateTo('soil')} className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition ${activeSection === 'soil' ? 'bg-[#e7ebdf] font-semibold text-[#35583b]' : 'text-[#6b634f] hover:bg-[#f0eee5]'}`}>
             <Camera size={18} />
             Soil analysis
-          </a>
-          <a href="#history" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-[#6b634f] transition hover:bg-[#f0eee5]">
+          </button>
+          <button type="button" onClick={() => navigateTo('history')} className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition ${activeSection === 'history' ? 'bg-[#e7ebdf] font-semibold text-[#35583b]' : 'text-[#6b634f] hover:bg-[#f0eee5]'}`}>
             <History size={18} />
             Analysis history
-          </a>
+          </button>
+          <button type="button" onClick={() => navigateTo('community')} className={`mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition ${activeSection === 'community' ? 'bg-[#e7ebdf] font-semibold text-[#35583b]' : 'text-[#6b634f] hover:bg-[#f0eee5]'}`}>
+            <Users size={18} />
+            Community
+          </button>
         </aside>
 
         <div id="dashboard" className="dashboard-fade min-w-0 space-y-7">
+          {activeSection === 'community' && (
+            <CommunitySection user={user} profile={profile} profileImage={profileImage} />
+          )}
+
+          {activeSection === 'overview' && (
           <section className="relative overflow-hidden rounded-[30px] bg-[#35583b] p-6 text-white shadow-[0_30px_70px_rgba(53,88,59,0.22)] sm:p-9">
             <div className="dashboard-glow absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
             <div className="dashboard-glow absolute bottom-0 left-1/3 h-32 w-32 rounded-full bg-[#84a873]/30 blur-3xl" />
@@ -480,12 +521,13 @@ export default function FarmerDashboard({ user, onLogout }) {
                 Manage your farm profile, capture a soil image, and prepare
                 it for AI-powered soil assessment.
               </p>
-              <a href="#soil-analysis" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#fffdf7] px-5 py-3 text-sm font-semibold text-[#35583b] transition duration-300 hover:-translate-y-0.5 hover:bg-white">
+              <button type="button" onClick={() => navigateTo('soil')} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#fffdf7] px-5 py-3 text-sm font-semibold text-[#35583b] transition duration-300 hover:-translate-y-0.5 hover:bg-white">
                 Analyze soil <ScanSearch size={17} />
-              </a>
+              </button>
             </div>
             <Sprout className="absolute -bottom-10 -right-5 h-48 w-48 text-white/10 sm:h-64 sm:w-64" />
           </section>
+          )}
 
           {message && (
             <div role="status" className="flex items-start justify-between gap-3 rounded-2xl border border-[#35583b]/15 bg-[#e7ebdf] px-4 py-3 text-sm text-[#35583b] shadow-[0_12px_26px_rgba(53,88,59,0.08)] transition-all duration-300">
@@ -496,6 +538,7 @@ export default function FarmerDashboard({ user, onLogout }) {
             </div>
           )}
 
+          {activeSection === 'profile' && (
           <section id="profile" className="dashboard-card scroll-mt-28 rounded-3xl border border-white bg-[#fffdf7] p-5 shadow-sm sm:p-7">
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -513,7 +556,9 @@ export default function FarmerDashboard({ user, onLogout }) {
             <div className="mb-6 flex flex-col gap-4 rounded-2xl bg-[#f5f5ed] p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">
                 <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-[#35583b]/10 bg-[#edf1e6] text-[#35583b] shadow-sm">
-                  {profileImage ? (
+                  {cameraOpen && cameraTarget === 'profile' && cameraStream ? (
+                    <video ref={videoRef} autoPlay playsInline muted aria-label="Camera preview for profile photo" className="h-full w-full object-cover" />
+                  ) : profileImage ? (
                     <img src={profileImage.preview} alt="Farmer profile" className="h-full w-full object-cover" />
                   ) : (
                     <UserRound size={28} />
@@ -527,9 +572,28 @@ export default function FarmerDashboard({ user, onLogout }) {
 
               <div className="flex flex-wrap gap-2">
                 <input ref={profileImageRef} type="file" accept="image/*" onChange={handleProfileImageChange} className="hidden" />
-                <button type="button" onClick={() => profileImageRef.current?.click()} className="inline-flex items-center gap-2 rounded-xl bg-[#35583b] px-4 py-2.5 text-sm font-semibold text-white transition duration-300 hover:bg-[#29452e]">
-                  <Upload size={16} /> Upload photo
-                </button>
+                {cameraOpen && cameraTarget === 'profile' ? (
+                  <>
+                    <button type="button" onClick={capturePhoto} disabled={!cameraStream} className="inline-flex items-center gap-2 rounded-xl bg-[#35583b] px-4 py-2.5 text-sm font-semibold text-white transition duration-300 hover:bg-[#29452e] disabled:cursor-not-allowed disabled:opacity-60">
+                      <Camera size={16} /> Capture photo
+                    </button>
+                    <button type="button" onClick={switchCamera} disabled={cameraLoading} className="inline-flex items-center gap-2 rounded-xl border border-[#35583b]/20 px-4 py-2.5 text-sm text-[#35583b] transition duration-300 hover:bg-[#e7ebdf] disabled:cursor-not-allowed disabled:opacity-60">
+                      <SwitchCamera size={16} /> Switch camera
+                    </button>
+                    <button type="button" onClick={stopCamera} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm text-[#8b493e] transition duration-300 hover:bg-[#f5e9e5]">
+                      <X size={16} /> Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button type="button" onClick={() => startCamera('user', 'profile')} className="inline-flex items-center gap-2 rounded-xl bg-[#35583b] px-4 py-2.5 text-sm font-semibold text-white transition duration-300 hover:bg-[#29452e]">
+                      <Camera size={16} /> Take profile photo
+                    </button>
+                    <button type="button" onClick={() => profileImageRef.current?.click()} className="inline-flex items-center gap-2 rounded-xl border border-[#35583b]/20 px-4 py-2.5 text-sm font-semibold text-[#35583b] transition duration-300 hover:bg-[#e7ebdf]">
+                      <ImageIcon size={16} /> Choose from gallery
+                    </button>
+                  </>
+                )}
                 {profileImage && (
                   <button type="button" onClick={removeProfileImage} className="inline-flex items-center gap-2 rounded-xl border border-[#35583b]/20 px-4 py-2.5 text-sm text-[#35583b] transition duration-300 hover:bg-[#e7ebdf]">
                     <Trash2 size={16} /> Remove
@@ -581,7 +645,9 @@ export default function FarmerDashboard({ user, onLogout }) {
               )}
             </form>
           </section>
+          )}
 
+          {activeSection === 'soil' && (
           <section id="soil-analysis" className="dashboard-card scroll-mt-28 rounded-3xl border border-white bg-[#fffdf7] p-5 shadow-sm sm:p-7">
             <div className="mb-6">
               <p className="text-xs font-semibold tracking-widest text-[#78906a]">IMAGE-BASED ASSESSMENT</p>
@@ -673,7 +739,9 @@ export default function FarmerDashboard({ user, onLogout }) {
               </div>
             </div>
           </section>
+          )}
 
+          {activeSection === 'history' && (
           <section id="history" className="dashboard-card scroll-mt-28 rounded-3xl border border-white bg-[#fffdf7] p-5 shadow-sm sm:p-7">
             <div className="mb-5 flex items-center gap-3">
               <History className="text-[#52764a]" size={22} />
@@ -706,6 +774,7 @@ export default function FarmerDashboard({ user, onLogout }) {
               </div>
             )}
           </section>
+          )}
 
         </div>
       </div>

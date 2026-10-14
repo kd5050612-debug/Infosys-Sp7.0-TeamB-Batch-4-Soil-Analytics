@@ -16,6 +16,7 @@ import {
 
 import Testimonials from './components/Testimonials'
 import FeedbackSection from './components/FeedbackSection'
+import FAQSection from './components/FAQSection'
 import AuthModal from './components/AuthModal'
 import TechnologySection from './components/TechnologySection'
 import FarmerDashboard from '../pages/FarmerDashboard.jsx'
@@ -734,6 +735,8 @@ function App() {
       <Testimonials />
 
       <FeedbackSection />
+
+      <FAQSection />
 
       <AuthModal
         isOpen={isAuthOpen}
