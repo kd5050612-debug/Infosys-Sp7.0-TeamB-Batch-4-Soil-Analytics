@@ -417,11 +417,13 @@ function App() {
           </span>
 
           <h1 className="mt-5 max-w-xl text-left font-serif text-4xl leading-[1.08] tracking-[-0.045em] sm:text-5xl md:text-6xl lg:text-7xl">
-            Precision Farming
-            <br />
-            and Soil
-            <br />
-            <span className="italic text-[#52764a]">
+            <span className="hero-title-line hero-title-line--first">
+              Precision Farming
+            </span>
+            <span className="hero-title-line hero-title-line--second">
+              and Soil
+            </span>
+            <span className="hero-title-line hero-title-line--third italic text-[#52764a]">
               Health Monitoring
             </span>
           </h1>
