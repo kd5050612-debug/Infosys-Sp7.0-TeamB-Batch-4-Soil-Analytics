@@ -1,0 +1,2 @@
+Dataset,Data Modality,Total Raw Discovered,Valid Processed Images,Unsupported (.gif),Corrupt Images,Duplicate Images Catalogued,Target Classes,Standardized Resolution,Train / Val / Test Partition,Leakage Protection,Quality Status
+Soil Image Classification,Computer Vision (RGB Images),"6,317 files","6,315 images",2,0,601,8,224x224 RGB,4407 / 948 / 960,MD5 Hash Grouped Stratification,VERIFIED / READY FOR DEEP LEARNING

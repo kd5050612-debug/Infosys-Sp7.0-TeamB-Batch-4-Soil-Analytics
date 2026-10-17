@@ -1,0 +1,17 @@
+{
+  "channel_mean_rgb": [
+    0.683,
+    0.5182,
+    0.3488
+  ],
+  "channel_std_rgb": [
+    0.1602,
+    0.1592,
+    0.1704
+  ],
+  "target_size": [
+    224,
+    224
+  ],
+  "color_space": "RGB"
+}

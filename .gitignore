@@ -1,4 +1,5 @@
-
 Frontend-UI/videos/farmer-story.mp4
 
-Frontend-UI/videos/farmer-story.mp4
+# Oversized raw and preprocessed image binaries (>500MB / 12,000 files)
+AIML/Soil Image Dataset/
+AIML/preprocessed_output/DL/soil_images/preprocessed_images/

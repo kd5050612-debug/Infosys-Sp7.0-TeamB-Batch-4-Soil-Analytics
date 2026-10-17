@@ -1,0 +1,12 @@
+Metric,Value
+Total Discovered Images,6317
+Valid Processed Images,6315
+Unsupported Files (.gif),2
+Corrupt Files,0
+Duplicate Images Identified,601
+Total Classes,8
+Train Partition Count,4407
+Validation Partition Count,948
+Test Partition Count,960
+Dataset RGB Mean,"[0.683, 0.518, 0.349]"
+Dataset RGB Std,"[0.16, 0.159, 0.17]"
